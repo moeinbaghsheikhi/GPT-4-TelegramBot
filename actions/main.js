@@ -2,6 +2,8 @@ const { Telegraf, Markup } = require('telegraf')
 
 const dbAction = require('./dbAction')
 
+const axios = require('axios')
+
 const mainKeyboardMenu = (ctx) => {
     const chat = ctx.chat
 
@@ -21,4 +23,36 @@ const mainKeyboardMenu = (ctx) => {
     )
 }
 
-module.exports = { mainKeyboardMenu }
+const proccessRequest = async (ctx, request_url, action, tones = false, dbActions) => {
+    // send loading
+    ctx.reply("درخواست شما درحال پردازش است لظفا چند لحظه صبر کنید 🔃")
+
+    if(action == "gpt3.5-turbo"){
+        const ressponse = await axios.get(request_url)
+
+        ctx.reply(ressponse.data.result[0])
+    } 
+    else if(action == "gpt4o"){
+        const ressponse = await axios.get(request_url + `&tones=${tones}`)
+
+        ctx.reply(ressponse.data.result[0])
+    } 
+    else if(action == "copilot") {
+        const ressponse = await axios.get(request_url + `&tones=${tones}`)
+
+        ctx.reply(ressponse.data.result[0].message)
+    }
+
+    // send next step
+    ctx.reply("درخواست شما با موفقیت پردازش شد✅" , 
+    Markup.keyboard([
+        [ 
+            Markup.button.callback("اتمام چت"), Markup.button.callback("ادامه")
+        ]
+    ]))
+
+    // incr request_free
+    await dbActions.incrRequestFree(ctx.chat.id)
+}
+
+module.exports = { mainKeyboardMenu, proccessRequest }

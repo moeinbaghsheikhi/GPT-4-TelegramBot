@@ -1,7 +1,7 @@
 const { Telegraf, Markup } = require('telegraf')
 
 // config
-const token = "7255987246:AAG45qe0oPXgfqVkeQsRZiaIyZNsidroD04";
+const token = "7236215598:AAHiMnspxnk2ead1RcHHPvGyQ-BMhlTeG68";
 const api_token = "277542:65be30c3eb3ce"
 const apiUrl = `https://one-api.ir/chatgpt/?token=${api_token}`
 
@@ -9,6 +9,7 @@ const bot = new Telegraf(token)
 
 // load Actions
 const actions = require('./actions/main')
+const dbActions = require('./actions/dbAction')
 
 // packages
 const axios = require('axios')
@@ -99,34 +100,8 @@ bot.on("text", async (ctx) => {
     
     // send response
 
-    if(action) {
-        // send loading
-        ctx.reply("درخواست شما درحال پردازش است لظفا چند لحظه صبر کنید 🔃")
-
-        if(action == "gpt3.5-turbo"){
-            const ressponse = await axios.get(request_url)
-    
-            ctx.reply(ressponse.data.result[0])
-        } 
-        else if(action == "gpt4o"){
-            const ressponse = await axios.get(request_url + `&tones=${tones}`)
-    
-            ctx.reply(ressponse.data.result[0])
-        } 
-        else if(action == "copilot") {
-            const ressponse = await axios.get(request_url + `&tones=${tones}`)
-    
-            ctx.reply(ressponse.data.result[0].message)
-        }
-    
-        // send next step
-        ctx.reply("درخواست شما با موفقیت پردازش شد✅" , 
-        Markup.keyboard([
-            [ 
-                Markup.button.callback("اتمام چت"), Markup.button.callback("ادامه")
-            ]
-        ]))
-    } else actions.mainKeyboardMenu
+    if(action) actions.proccessRequest(ctx, request_url, action, tones)
+    else actions.mainKeyboardMenu
 })
 
 bot.launch();

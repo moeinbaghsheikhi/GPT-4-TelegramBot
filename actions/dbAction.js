@@ -9,14 +9,20 @@ const connection = mysql.createConnection({
   
 
 const registerUser = (chatId, name) => {
-    connection.query(
-        'INSERT INTO users SET chat_id = ? , name = ?',
-        [chatId, name],
-        function (err, results) {
-        //   console.log(err);
+    connection.query('SELECT * FROM users WHERE chat_id = ?' , [chatId], function(err, results){
+        if(!results.length) connection.query('INSERT INTO users SET chat_id = ? , name = ?',[chatId, name]);
+    })
+}
+
+const incrRequestFree = (chatId) => {
+    connection.query('SELECT * FROM users WHERE chat_id = ?' , [chatId], function(err, results){
+        if(results.length){
+            const user = results[0]
+
+            connection.query('UPDATE users SET request_free = ? WHERE chat_id = ?',[(user.request_free + 1) ,chatId]);
         }
-      );
+    })
 }
 
 
-module.exports = { registerUser }
+module.exports = { registerUser , incrRequestFree}
