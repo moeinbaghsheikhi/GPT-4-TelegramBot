@@ -17,7 +17,7 @@ const redis = require('redis')
 const client = redis.createClient();
 client.connect();
 
-bot.start((ctx) => actions.mainKeyboardMenu(ctx))
+bot.start((ctx) => actions.mainKeyboardMenu(ctx, dbActions))
 
 // send Actions
 bot.action("Turbo", (ctx) => {
@@ -84,7 +84,7 @@ bot.hears("اتمام چت", (ctx) => {
     ctx.reply("مکالمه به پایان رسید⛔", Markup.removeKeyboard())
 
     // send home menu
-    actions.mainKeyboardMenu
+    actions.mainKeyboardMenu(ctx)
 
     client.del(`user:${chatId}:action`)
     client.del(`user:${chatId}:tones`)
@@ -100,8 +100,20 @@ bot.on("text", async (ctx) => {
     
     // send response
 
-    if(action) actions.proccessRequest(ctx, request_url, action, tones)
-    else actions.mainKeyboardMenu
+    if(action) {
+        const requestFreeCount = await dbActions.getRequestFree(chatId)
+
+        if(requestFreeCount >= 5) {
+            ctx.reply("ظرفیت استفاده رایگان شما به اتمام رسیده ⛔",  Markup.removeKeyboard())
+        } 
+        else {
+            actions.proccessRequest(ctx, request_url, action, tones)
+        
+            // incr request_free
+            dbActions.incrRequestFree(chatId)
+        }
+    }
+    else actions.mainKeyboardMenu(ctx)
 })
 
 bot.launch();

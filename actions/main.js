@@ -1,10 +1,8 @@
 const { Telegraf, Markup } = require('telegraf')
 
-const dbAction = require('./dbAction')
-
 const axios = require('axios')
 
-const mainKeyboardMenu = (ctx) => {
+const mainKeyboardMenu = (ctx, dbAction) => {
     const chat = ctx.chat
 
     // register User
@@ -23,7 +21,7 @@ const mainKeyboardMenu = (ctx) => {
     )
 }
 
-const proccessRequest = async (ctx, request_url, action, tones = false, dbActions) => {
+const proccessRequest = async (ctx, request_url, action, tones = false) => {
     // send loading
     ctx.reply("درخواست شما درحال پردازش است لظفا چند لحظه صبر کنید 🔃")
 
@@ -36,7 +34,7 @@ const proccessRequest = async (ctx, request_url, action, tones = false, dbAction
         const ressponse = await axios.get(request_url + `&tones=${tones}`)
 
         ctx.reply(ressponse.data.result[0])
-    } 
+    }  
     else if(action == "copilot") {
         const ressponse = await axios.get(request_url + `&tones=${tones}`)
 
@@ -50,9 +48,6 @@ const proccessRequest = async (ctx, request_url, action, tones = false, dbAction
             Markup.button.callback("اتمام چت"), Markup.button.callback("ادامه")
         ]
     ]))
-
-    // incr request_free
-    await dbActions.incrRequestFree(ctx.chat.id)
 }
 
 module.exports = { mainKeyboardMenu, proccessRequest }

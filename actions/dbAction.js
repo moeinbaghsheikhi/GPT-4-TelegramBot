@@ -1,28 +1,31 @@
-const mysql = require('mysql2');
-
 // Create the connection to database
-const connection = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    database: 'gpt',
+const knex = require('knex')({
+    client: 'mysql2',
+    connection: {
+      host: '127.0.0.1',
+      port: 3306,
+      user: 'root',
+      password: '',
+      database: 'gpt',
+    },
   });
-  
 
-const registerUser = (chatId, name) => {
-    connection.query('SELECT * FROM users WHERE chat_id = ?' , [chatId], function(err, results){
-        if(!results.length) connection.query('INSERT INTO users SET chat_id = ? , name = ?',[chatId, name]);
-    })
+const registerUser = async (chatId, name) => {
+    const hasUser = await knex("users").where({ chat_id: chatId }).first()
+
+    if(!hasUser) await knex("users").insert({ chat_id: chatId, name })
 }
 
-const incrRequestFree = (chatId) => {
-    connection.query('SELECT * FROM users WHERE chat_id = ?' , [chatId], function(err, results){
-        if(results.length){
-            const user = results[0]
-
-            connection.query('UPDATE users SET request_free = ? WHERE chat_id = ?',[(user.request_free + 1) ,chatId]);
-        }
-    })
+const incrRequestFree = async (chatId) => {
+    const user = await knex("users").where({ chat_id: chatId }).first()
+    
+    if(user) await knex("users").update({ request_free: ++user.request_free }).where({chat_id : chatId })
 }
 
+const getRequestFree = async (chatId) => {
+    const user = await knex("users").where({ chat_id: chatId }).first()
 
-module.exports = { registerUser , incrRequestFree}
+    return user?.request_free
+}
+
+module.exports = { registerUser , incrRequestFree, getRequestFree }
