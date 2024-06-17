@@ -4,6 +4,7 @@ const { Telegraf, Markup } = require('telegraf')
 const token = "7236215598:AAHiMnspxnk2ead1RcHHPvGyQ-BMhlTeG68";
 const api_token = "277542:65be30c3eb3ce"
 const apiUrl = `https://one-api.ir/chatgpt/?token=${api_token}`
+const knex   = require('./config/db')
 
 const bot = new Telegraf(token)
 
@@ -73,6 +74,57 @@ bot.action("precise", (ctx) => {
     ctx.editMessageText("سلام چه کمکی میتونم بهتون بکنم؟")
 })
 
+
+// vip plan
+bot.action("vip_plans", (ctx) => {
+    const chatId = ctx.chat.id
+
+    ctx.editMessageText("برای استفاده از این ربات میتونی یکی از پلن های زیرو خریداری کنی:",
+        Markup.inlineKeyboard([
+            [ 
+                Markup.button.callback('خرید 3.5 توربو', 'plan_turbo'), Markup.button.callback('خرید GPT-4', 'plan_gpt4')
+            ],
+            [
+                Markup.button.callback('خرید کوپایلت', 'plan_copilot'), Markup.button.callback('خرید اشتراک نامحدود🚀', 'plan_vip')
+            ]
+        ])
+    )
+})
+
+bot.on('callback_query', async (ctx) => {
+    const text = ctx.update.callback_query.data
+    const chatId = ctx.update.callback_query.from.id
+    const timenow = Math.floor(Date.now() / 1000)
+
+    const orderPlans = ["plan_turbo", "plan_gpt4", "plan_copilot", "plan_vip"]
+    const periodPlans = ["time_7", "time_15", "time_30", "time_90"]
+
+    const user = await knex("users").where({ chat_id: chatId }).first()
+
+    // order plan
+    if(orderPlans.includes(text)){
+        const createOrder = await knex("orders").insert({ user_id: user.id, plan: text.substr(5), created_at: timenow })
+
+        ctx.editMessageText("میخوای اشتراک چند روزه بخری؟",
+            Markup.inlineKeyboard([
+                [ 
+                    Markup.button.callback('7 روزه (30،000)', 'time_7'), Markup.button.callback('15 روزه (60،000)', 'time_15')
+                ],
+                [
+                    Markup.button.callback('1 ماهه (120،000)', 'time_30'), Markup.button.callback('3 ماهه (300،000)', 'time_90')
+                ]
+            ])
+        )
+    }
+
+    // period plan
+    if(periodPlans.includes(text)){
+        const updateOrder = await knex("orders").update( { period_plan: text.substr(5) } ).orderBy("id", "DESC").limit(1)
+    }
+})
+
+
+// Commands
 bot.hears("ادامه", (ctx) => {
     ctx.reply("دیگه چه کمکی میتونم بهت بکنم؟", Markup.removeKeyboard())
 })

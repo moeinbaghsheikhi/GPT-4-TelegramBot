@@ -16,6 +16,9 @@ const mainKeyboardMenu = (ctx, dbAction) => {
             ],
             [
                 Markup.button.callback('Microsoft copilot', 'copilot')
+            ],
+            [
+                Markup.button.callback('خرید اشتراک 🚀', 'vip_plans')
             ]
         ])
     )
