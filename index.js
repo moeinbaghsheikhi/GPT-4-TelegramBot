@@ -91,6 +91,27 @@ bot.action("vip_plans", (ctx) => {
     )
 })
 
+// check payments action
+bot.action("complete_order", async (ctx) => {
+    const chatId = ctx.chat.id
+    const user = await knex("users").where({ chat_id: chatId }).first()
+
+    // get last order
+    const lastOrder = await knex("orders").where({ user_id: user.id }).orderBy("id", "DESC").first()
+
+    // create payment link
+    const request = await axios.post("https://gateway.zibal.ir/v1/request", { merchant: "zibal", amount: (lastOrder.amount * 10), callbackUrl: "http://localhost:3030", orderId: lastOrder.id })
+
+    // send payment keyboard 
+    ctx.editMessageText("برای تکمیل خرید روی گزینه زیر کلیک کن!",
+        Markup.inlineKeyboard([
+            [ 
+                Markup.button.url("پرداخت نهایی 💰", `https://gateway.zibal.ir/start/${request.data.trackId}`),
+            ]
+        ])
+    )
+})
+
 bot.on('callback_query', async (ctx) => {
     const text = ctx.update.callback_query.data
     const chatId = ctx.update.callback_query.from.id
@@ -103,15 +124,25 @@ bot.on('callback_query', async (ctx) => {
 
     // order plan
     if(orderPlans.includes(text)){
-        const createOrder = await knex("orders").insert({ user_id: user.id, plan: text.substr(5), created_at: timenow })
+        const planSelected = text.substr(5)
+        const createOrder = await knex("orders").insert({ user_id: user.id, plan: planSelected, created_at: timenow })
 
+        // get prices plan
+        const plans = await knex("prices").where({ plan: planSelected })
+        
+        const plan_7 = plans.find(item => item.period_time == 7)
+        const plan_15 = plans.find(item => item.period_time == 15)
+        const plan_30 = plans.find(item => item.period_time == 30)
+        const plan_90 = plans.find(item => item.period_time == 90)
+
+        // send keyboard price list
         ctx.editMessageText("میخوای اشتراک چند روزه بخری؟",
             Markup.inlineKeyboard([
                 [ 
-                    Markup.button.callback('7 روزه (30،000)', 'time_7'), Markup.button.callback('15 روزه (60،000)', 'time_15')
+                    Markup.button.callback(`7 روزه (${plan_7.price})`, 'time_7'), Markup.button.callback(`15 روزه (${plan_15.price})`, 'time_15')
                 ],
                 [
-                    Markup.button.callback('1 ماهه (120،000)', 'time_30'), Markup.button.callback('3 ماهه (300،000)', 'time_90')
+                    Markup.button.callback(`1 ماهه (${plan_30.price})`, 'time_30'), Markup.button.callback(`3 ماهه (${plan_90.price})`, 'time_90')
                 ]
             ])
         )
@@ -119,10 +150,26 @@ bot.on('callback_query', async (ctx) => {
 
     // period plan
     if(periodPlans.includes(text)){
-        const updateOrder = await knex("orders").update( { period_plan: text.substr(5) } ).orderBy("id", "DESC").limit(1)
+        const periodTimeSelected = text.substr(5)
+
+        // get last order
+        const lastOrder = await knex("orders").where({ user_id: user.id }).orderBy("id", "DESC").first()
+
+        // get amount from prices
+        const price_plan = await knex("prices").where({ plan: lastOrder.plan, period_time: periodTimeSelected }).first()
+
+        const updateOrder = await knex("orders").update( { period_plan: periodTimeSelected, amount: price_plan.price } ).where({ id: lastOrder.id })
+        
+        // send payment keyboard
+        ctx.editMessageText("برای تکمیل خرید روی گزینه زیر کلیک کن!",
+            Markup.inlineKeyboard([
+                [ 
+                    Markup.button.callback("تکمیل سفارش ✅", 'complete_order'),
+                ]
+            ])
+        )
     }
 })
-
 
 // Commands
 bot.hears("ادامه", (ctx) => {
@@ -151,7 +198,6 @@ bot.on("text", async (ctx) => {
     const request_url = `${apiUrl}&action=${action}&q=` + encodeURIComponent(userText)
     
     // send response
-
     if(action) {
         const requestFreeCount = await dbActions.getRequestFree(chatId)
 
