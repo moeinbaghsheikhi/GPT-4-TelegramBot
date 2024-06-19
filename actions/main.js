@@ -1,12 +1,13 @@
 const { Telegraf, Markup } = require('telegraf')
 
 const axios = require('axios')
+const dbAction = require("./dbAction")
 
-const mainKeyboardMenu = (ctx, dbAction) => {
+const mainKeyboardMenu = async (ctx) => {
     const chat = ctx.chat
 
     // register User
-    dbAction.registerUser(chat.id, chat.first_name)
+    const register = await dbAction.registerUser(chat.id, chat.first_name)
 
     // send Menu
     ctx.reply("خوش اومدی به ربات چت بات!",

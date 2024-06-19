@@ -18,4 +18,20 @@ const getRequestFree = async (chatId) => {
     return user?.request_free
 }
 
-module.exports = { registerUser , incrRequestFree, getRequestFree }
+const checkVipAccess = async (user_id) => {
+    const timenow = Math.floor(Date.now() / 1000)
+
+    const getVIP = await knex("orders").whereRaw(`(started_at <= ${timenow} AND ended_at >= ${timenow}) AND plan = 'vip'`).first()
+    
+    return getVIP
+}
+
+const checkOtherPlan = async (user_id, action) => {
+    const timenow = Math.floor(Date.now() / 1000)
+
+    const getPlan = await knex("orders").whereRaw(`(started_at <= ${timenow} AND ended_at >= ${timenow}) AND plan = '${action}'`).first()
+    
+    return getPlan
+}
+
+module.exports = { registerUser , incrRequestFree, getRequestFree, checkVipAccess, checkOtherPlan }

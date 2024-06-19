@@ -38,7 +38,7 @@ bot.start( async (ctx) => {
         } else {
             ctx.reply("عملیات نامعتبر⛔")
         }
-    } actions.mainKeyboardMenu(ctx, dbActions)
+    } actions.mainKeyboardMenu(ctx)
 })
 
 // send Actions
@@ -228,24 +228,51 @@ bot.hears("اتمام چت", (ctx) => {
 bot.on("text", async (ctx) => {
     const chatId   = ctx.chat.id
     const userText = ctx.text
+    
+    let plan = false
 
     const action   = await client.get(`user:${chatId}:action`)
     const tones    = await client.get(`user:${chatId}:tones`)
     const request_url = `${apiUrl}&action=${action}&q=` + encodeURIComponent(userText)
+
+    switch(action){
+        case "gpt3.5-turbo": 
+            plan = "turbo";
+            break;
+        case "gpt4o":
+            plan = "gpt4";
+            break;
+        case "copilot":
+            plan = "copilot";
+            break;
+    }
+
+    // get user detail by chatId
+    const user = await knex("users").where({ chat_id: chatId }).first()
     
     // send response
     if(action) {
+        let   checkAccess = false
         const requestFreeCount = await dbActions.getRequestFree(chatId)
 
-        if(requestFreeCount >= 5) {
-            ctx.reply("ظرفیت استفاده رایگان شما به اتمام رسیده ⛔",  Markup.removeKeyboard())
-        } 
+        const checkVIP = await dbActions.checkVipAccess(user.id)
+        const getOtherPlan = await dbActions.checkOtherPlan(user.id, plan)
+
+        if(checkVIP) checkAccess = true 
+        else if(getOtherPlan) checkAccess = true
         else {
-            actions.proccessRequest(ctx, request_url, action, tones)
-        
-            // incr request_free
-            dbActions.incrRequestFree(chatId)
+            if(requestFreeCount >= 5) ctx.reply("ظرفیت استفاده رایگان شما به اتمام رسیده ⛔",  Markup.removeKeyboard())
+            else {
+                // incr free request
+                dbActions.incrRequestFree(chatId)
+                
+                checkAccess = true
+            }
         }
+        
+
+        if(checkAccess) actions.proccessRequest(ctx, request_url, action, tones)
+        else actions.mainKeyboardMenu(ctx)
     }
     else actions.mainKeyboardMenu(ctx)
 })
