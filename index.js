@@ -14,11 +14,32 @@ const dbActions = require('./actions/dbAction')
 
 // packages
 const axios = require('axios')
-const redis = require('redis')
+const redis = require('redis');
 const client = redis.createClient();
 client.connect();
 
-bot.start((ctx) => actions.mainKeyboardMenu(ctx, dbActions))
+bot.start( async (ctx) => {
+    const chatId = ctx.chat.id
+    const payload = ctx.payload
+    const timenow = Math.floor(Date.now() / 1000)
+
+    if(payload.length){  
+        const user = await knex("users").where({ chat_id: chatId }).first()
+    
+        // get last order
+        const lastOrder = await knex("orders").where({ user_id: user.id }).orderBy("id", "DESC").first()
+
+        const request = await axios.post("https://gateway.zibal.ir/v1/verify", { merchant: "zibal", trackId: lastOrder.trackId })
+        
+        if(request.data.result == 100){ 
+            const updateOrder = await knex("orders").where({ id: lastOrder.id }).update({ status: "done", started_at: timenow, ended_at: calculateEndTime(timenow, lastOrder.period_plan) })
+
+            ctx.reply("خرید شما با موفقیت تایید شد ✅❤️")
+        } else {
+            ctx.reply("عملیات نامعتبر⛔")
+        }
+    } actions.mainKeyboardMenu(ctx, dbActions)
+})
 
 // send Actions
 bot.action("Turbo", (ctx) => {
@@ -91,8 +112,21 @@ bot.action("vip_plans", (ctx) => {
     )
 })
 
+bot.action("loading", (ctx) => {
+    ctx.reply("چند لحظه صبر کنید ...")
+})
+
 // check payments action
 bot.action("complete_order", async (ctx) => {
+    // send payment keyboard 
+    ctx.editMessageText("برای تکمیل خرید روی گزینه زیر کلیک کن!",
+        Markup.inlineKeyboard([
+            [ 
+                Markup.button.callback("درحال ساخت لینک پرداخت 🔃", "loading"),
+            ]
+        ])
+    )
+
     const chatId = ctx.chat.id
     const user = await knex("users").where({ chat_id: chatId }).first()
 
@@ -100,7 +134,9 @@ bot.action("complete_order", async (ctx) => {
     const lastOrder = await knex("orders").where({ user_id: user.id }).orderBy("id", "DESC").first()
 
     // create payment link
-    const request = await axios.post("https://gateway.zibal.ir/v1/request", { merchant: "zibal", amount: (lastOrder.amount * 10), callbackUrl: "http://localhost:3030", orderId: lastOrder.id })
+    const request = await axios.post("https://gateway.zibal.ir/v1/request", { merchant: "zibal", amount: (lastOrder.amount * 10), callbackUrl: `https://t.me/chatbotsabzlearn_bot?start=${lastOrder.id}`, orderId: lastOrder.id })
+
+    const updateOrder = await knex("orders").update({ trackId: request.data.trackId }).where({ user_id: user.id }).orderBy("id", "DESC").limit(1)
 
     // send payment keyboard 
     ctx.editMessageText("برای تکمیل خرید روی گزینه زیر کلیک کن!",
@@ -213,5 +249,9 @@ bot.on("text", async (ctx) => {
     }
     else actions.mainKeyboardMenu(ctx)
 })
+
+const calculateEndTime = ( time, days ) => {
+    return (time + (60*60*24*days))
+}
 
 bot.launch();
